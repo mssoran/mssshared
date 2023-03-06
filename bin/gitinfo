@@ -134,7 +134,7 @@ function _usage {
     echo "                   Default value is '$HOME/.gitinfoignoredirs'"
     echo "                   This file doesn't need to exist"
     echo "--fetch"
-    echo "                  Runs fetch for all the repositories to get updated data from from remote"
+    echo "                   Runs fetch for all the repositories to get updated data from remote"
     echo "--verbose"
     echo "-v"
     echo "                   More verbose output is printed"
