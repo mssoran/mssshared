@@ -1,0 +1,206 @@
+#!/bin/zsh
+
+. $MSS_SHAREDPATH/bin/msshelp.sh
+
+
+function verbose {
+    if [[ "$1" != "" && "$verbose" == "true" ]] ; then echo -e $*; fi
+}
+
+function findrealpath {
+    if [[ "${1:0:1}" == "~" ]] then
+        echo $HOME${1#"~"}
+    else
+        echo $1
+    fi
+}
+
+
+function show_status {
+    if [[ ! -e "$gitInfoDirsFile" ]]; then {
+        echo There are no known git dirs in file \'$gitInfoDirsFile\'
+        exit 2
+    }; fi
+
+    [[ -f "$gitInfoDirsFile" ]] || _usage "$gitInfoDirsFile is not a file"
+
+    for gitDir in $(cat "$gitInfoDirsFile"); do {
+        gitDirRealPath=$(findrealpath $gitDir)
+        if [[ ! -d $gitDirRealPath ]]; then {
+            echo  -e ${BRed}Error: \'$gitDir\' is not a directory!${ResetColor}
+            continue
+        } fi
+        if [[ ! -d "$gitDirRealPath/.git" ]]; then {
+            echo  -e ${BRed}Error: \'$gitDir\' is not a git directory!${ResetColor}
+            continue
+        } fi
+        (
+            cd $gitDirRealPath
+            GITSTATUS=$(git status --porcelain)
+            if [[ -n "$GITSTATUS" ]]; then {
+                echo $gitDir
+                verbose $GITSTATUS
+                GITUNTRACKED=$(echo $GITSTATUS | grep "^??" | wc -l | tr -d ' ')
+                GITCHANGES=$(echo $GITSTATUS | grep -v "^??\|^$" | wc -l | tr -d ' ')
+                if [[ "$GITUNTRACKED" != "0" ]] ; then echo -e ${Red}$GITUNTRACKED untracked files${ResetColor}; fi
+                if [[ "$GITCHANGES" != "0" ]] ; then echo -e ${Red}$GITCHANGES changed files${ResetColor}; fi
+                GITCOMMITS=$(git log @{upstream}..HEAD | grep '^commit' | wc -l | tr -d ' ')
+                if [[ "$GITCOMMITS" != "0" ]] ; then echo -e ${Red}$GITCOMMITS commits ahead, needs push${ResetColor}; fi
+            } else {
+                echo -e ${Green}$gitDir has no changed files${ResetColor}
+            } fi
+        )
+    } done
+}
+
+function callFind {
+    findFlags=
+    findIgnoreDirs=$(findrealpath $gitInfoIgnoreDirsFile)
+    if [[ -f $findIgnoreDirs ]]; then {
+        for i in $(cat $gitInfoIgnoreDirsFile); do {
+            # each file must be a relative path from $HOME dir, or
+            # an absolute path under $HOME
+            ignoreFilePath=$(realpath $(findrealpath "$i"))
+            ignoreFilePathEnd=${ignoreFilePath#$HOME}
+            ignoreFilePathStart=${ignoreFilePath%$ignoreFilePathEnd}
+            if [[ "$ignoreFilePathStart" == "$HOME" ]] then {
+                findFlags=" -path .$ignoreFilePathEnd -prune -or "$findFlags
+            } fi
+        } done
+    } fi
+    find . ${=findFlags} -type d -exec test -e "{}/.git" ";" -print -prune 2>/dev/null
+}
+
+function find_dirs {
+    (
+    declare -A existingDirList
+    cd ~
+
+    for i in $(cat $gitInfoDirsFile); do {
+        realdir=$(findrealpath $i)
+        if [[ -e $realdir ]]; then
+            existingDirList[$(realpath $realdir)]=existing
+        fi
+    } done
+    headerPrintedFlag=false
+    for i in $(callFind); do {
+        realdir=$(findrealpath $i)
+        if [[ -e $realdir ]]; then {
+            foundDir=$(realpath $realdir)
+            if [[ "$existingDirList[$foundDir]" == "existing" ]]; then
+                existingDirList[$foundDir]=found
+            else {
+                existingDirList[$foundDir]=new
+                [[ $headerPrintedFlag == "true" ]] || { headerPrintedFlag=true ; echo "New Dir List: Add them to '$gitInfoDirsFile'" }
+                echo -e ${BYellow}$foundDir${ResetColor}
+            } fi
+        } fi
+    } done
+    headerPrintedFlag=false
+    for key value in ${(kv)existingDirList}; do {
+        if [[ "$value" == "existing" ]] then {
+            [[ $headerPrintedFlag == "true" ]] || { headerPrintedFlag=true ; echo "Not Found Anymore, Old Dirs List: Remove them from '$gitInfoDirsFile'" }
+            echo -e ${Yellow}$key
+        } fi
+    } done
+    )
+}
+
+function _usage {
+    if [[ "$1" != "" ]]; then echo -e ${BRed}Error: $* ${ResetColor}; echo  ; fi
+    echo Usage:
+    echo '   gitinfo [<command>] [--gitInfoDirsFile <gitinfodirs file name>] [--gitInfoIgnoreDirsFile <gitinfoignoredirs file name>] [-v] [--verbose]'
+    echo
+    echo "command: There are three defined commands"
+    echo "   showstatus      Default command. If command is skipped, showstatus is assumed. "
+    echo "                   --gitInfoDirsFile file must exist for this command"
+    echo "   finddirs        Search all the directory tree under \$HOME \($HOME\) and find"
+    echo "                   all git repositories. List the difference from the list in "
+    echo "                   gitInfoDirsFile. Ignores the list in gitInfoIgnoreDirsFile."
+    echo "   help            Prints the usage"
+    echo
+    echo "--gitInfoDirsFile filename"
+    echo "                   Commands use the directories in this file as the list of git"
+    echo "                   repositories. finddirs command can be used to generate this file"
+    echo "                   Default value is \'$HOME/.gitinfodirs\'"
+    echo "                   This file must exist for some commands to work."
+    echo "--gitInfoIgnoreDirsFile filename"
+    echo "                   finddirs command ignores the directorites in the given file"
+    echo "                   Default value is \'$HOME/.gitinfoignoredirs\'"
+    echo "                   This file doesn\'t need to exist"
+    echo "--verbose"
+    echo "-v"
+    echo "                   More verbose output is printed"
+    echo
+    echo "Example:"
+    echo "                   1. Use the following command to find all the repositories in your home"
+    echo "                   gitinfo finddirs"
+    echo
+    echo "                   2. Append the git repositories that you want to follow in \'$HOME/.gitinfodirs\'"
+    echo "                      add the dirs that you want to ignore in \'$HOME/.gitinfoignoredirs\'"
+    echo
+    echo "                   3. Run the following command to see general info for each repository. Yo can add"
+    echo "                      -v for more info \(like listing each changed file\)"
+    echo "                   gitinfo"
+    exit 1
+
+}
+
+# set initial default values
+command=showstatus
+gitInfoDirsFile=$HOME/.gitinfodirs
+gitInfoIgnoreDirsFile=$HOME/.gitinfoignoredirs
+verbose=false
+
+# parse arguments here
+while [[ "$1" != "" ]]
+do {
+    case $1 in
+    showstatus)
+        command=$1
+        ;;
+    finddirs)
+        command=$1
+        ;;
+    help)
+        command=$1
+        ;;
+    --gitInfoDirsFile)
+        shift
+        gitInfoDirsFile=$1
+        echo setting dirsfile to $gitInfoDirsFile
+        ;;
+    --gitInfoIgnoreDirsFile)
+        shift
+        gitInfoIgnoreDirsFile=$1
+        echo setting dirsfile to $gitInfoIgnoreDirsFile
+        ;;
+    --verbose)
+        verbose=true
+        ;;
+    -v)
+        verbose=true
+        ;;
+    *)
+        _usage "Unknown argument $1"
+        ;;
+    esac
+    shift
+} done
+
+
+
+case $command in 
+    finddirs)
+        find_dirs
+    ;;
+    showstatus)
+        show_status
+    ;;
+    help)
+        _usage
+    ;;
+    *)
+        _usage "Unknown command $command"
+esac
+
