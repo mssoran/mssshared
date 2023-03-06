@@ -30,7 +30,7 @@ function show_status {
             echo  -e ${BRed}Error: \'$gitDir\' is not a directory!${ResetColor}
             continue
         } fi
-        if [[ ! -d "$gitDirRealPath/.git" ]]; then {
+        if ! git -C $gitDirRealPath status -s > /dev/null ; then {
             echo  -e ${BRed}Error: \'$gitDir\' is not a git directory!${ResetColor}
             continue
         } fi
@@ -38,20 +38,20 @@ function show_status {
             cd $gitDirRealPath
             GITSTATUS=$(git status --porcelain)
             if [[ -n "$GITSTATUS" ]]; then {
-                echo $gitDir
+                echo -e ${Yellow}$gitDir${ResetColor}
                 verbose $GITSTATUS
                 GITUNTRACKED=$(echo $GITSTATUS | grep "^??" | wc -l | tr -d ' ')
                 GITCHANGES=$(echo $GITSTATUS | grep -v "^??\|^$" | wc -l | tr -d ' ')
                 if [[ "$GITUNTRACKED" != "0" ]] ; then echo -e ${Red}$GITUNTRACKED untracked files${ResetColor}; fi
                 if [[ "$GITCHANGES" != "0" ]] ; then echo -e ${Red}$GITCHANGES changed files${ResetColor}; fi
-                GITCOMMITS="$(git rev-list --count @{upstream}..HEAD 2>/dev/null)"
-                if [[ "$GITCOMMITS" != "0" ]] ; then echo -e ${Red}$GITCOMMITS commits ahead, needs push${ResetColor}; fi
             } else {
                 echo -e ${Green}$gitDir has no changed files${ResetColor}
             } fi
             if [[ "$fetchrepos" == "true" ]] ; then {
                 git fetch
             } fi
+            GITCOMMITS="$(git rev-list --count @{upstream}..HEAD 2>/dev/null)"
+            if [[ "$GITCOMMITS" != "0" ]] ; then echo -e ${Red}$GITCOMMITS commits ahead, needs push${ResetColor}; fi
             GITCOMMITSBEHIND="$(git rev-list --count HEAD..@{upstream} 2>/dev/null)"
             if [[ "$GITCOMMITSBEHIND" != "0" ]] ; then echo -e ${Red}$GITCOMMITSBEHIND commits behind, needs pull${ResetColor}; fi
         )
@@ -73,7 +73,10 @@ function callFind {
             } fi
         } done
     } fi
-    find . ${=findFlags} -type d -exec test -e "{}/.git" ";" -print -prune 2>/dev/null
+    # only looking at existence of .git directory is faster, but it doesn't catch some edge
+    # cases (for example git directory for yadm). git status finds them all
+    #find . ${=findFlags} -type d -exec test -e "{}/.git" ";" -print -prune 2>/dev/null
+    find . ${=findFlags} -type d -exec git -C {} status -s ";" -print -prune 2>/dev/null
 }
 
 function find_dirs {
