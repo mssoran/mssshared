@@ -119,7 +119,7 @@ function _usage {
     echo "command: There are three defined commands"
     echo "   showstatus      Default command. If command is skipped, showstatus is assumed. "
     echo "                   --gitInfoDirsFile file must exist for this command"
-    echo "   finddirs        Search all the directory tree under \$HOME \($HOME\) and find"
+    echo "   finddirs        Search all the directory tree under \$HOME ($HOME) and find"
     echo "                   all git repositories. List the difference from the list in "
     echo "                   gitInfoDirsFile. Ignores the list in gitInfoIgnoreDirsFile."
     echo "   help            Prints the usage"
@@ -127,12 +127,12 @@ function _usage {
     echo "--gitInfoDirsFile filename"
     echo "                   Commands use the directories in this file as the list of git"
     echo "                   repositories. finddirs command can be used to generate this file"
-    echo "                   Default value is \'$HOME/.gitinfodirs\'"
+    echo "                   Default value is '$HOME/.gitinfodirs'"
     echo "                   This file must exist for some commands to work."
     echo "--gitInfoIgnoreDirsFile filename"
     echo "                   finddirs command ignores the directorites in the given file"
-    echo "                   Default value is \'$HOME/.gitinfoignoredirs\'"
-    echo "                   This file doesn\'t need to exist"
+    echo "                   Default value is '$HOME/.gitinfoignoredirs'"
+    echo "                   This file doesn't need to exist"
     echo "--fetch"
     echo "                  Runs fetch for all the repositories to get updated data from from remote"
     echo "--verbose"
@@ -143,12 +143,12 @@ function _usage {
     echo "                   1. Use the following command to find all the repositories in your home"
     echo "                   gitinfo finddirs"
     echo
-    echo "                   2. Append the git repositories that you want to follow in \'$HOME/.gitinfodirs\'"
-    echo "                      add the dirs that you want to ignore in \'$HOME/.gitinfoignoredirs\'"
+    echo "                   2. Append the git repositories that you want to follow to '$HOME/.gitinfodirs'"
+    echo "                      add the dirs that you want to ignore in '$HOME/.gitinfoignoredirs'"
     echo
     echo "                   3. Run the following command to see general info for each repository. Yo can add"
-    echo "                      -v for more info \(like listing each changed file\)"
-    echo "                   gitinfo"
+    echo "                      -v for more info (like listing each changed file)"
+    echo "                   gitinfo -v"
     exit 1
 
 }
